@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:wallet_app_workshop/core/data.dart';
 import 'package:wallet_app_workshop/core/styles.dart';
@@ -11,14 +13,26 @@ class OnBoardingPage extends StatefulWidget {
   State<OnBoardingPage> createState() => _OnBoardingPageState();
 }
 
-class _OnBoardingPageState extends State<OnBoardingPage> {
+class _OnBoardingPageState extends State<OnBoardingPage> with SingleTickerProviderStateMixin {
+  late final AnimationController animationController;
   late final PageController pageController;
   static const viewportFraction = 0.7;
+  int currentIndex = 0;
 
   @override
   void initState() {
     pageController = PageController(viewportFraction: viewportFraction);
+    animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    animationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -51,29 +65,63 @@ class _OnBoardingPageState extends State<OnBoardingPage> {
                     child: WalletSide(),
                   ),
                   Positioned.fill(
-                    child: PageView.builder(
-                      controller: pageController,
-                      itemCount: onBoardingItems.length,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.onBlack,
-                            borderRadius: BorderRadius.circular(25),
-                            image: DecorationImage(
-                              image: AssetImage(onBoardingItems[index].image),
-                              fit: BoxFit.fitWidth,
-                            ),
-                          ),
-                        );
+                    child: GestureDetector(
+                      onTapDown: (_) => animationController.forward(),
+                      onTapUp: (_) => animationController.reverse(),
+                      onTapCancel: () {
+                        if (animationController.isCompleted) {
+                          animationController.reverse();
+                        } else {
+                          animationController.reset();
+                        }
                       },
+                      child: PageView.builder(
+                        controller: pageController,
+                        itemCount: onBoardingItems.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            currentIndex = index;
+                          });
+                          animationController.forward().then((value) => animationController.reverse());
+                        },
+                        itemBuilder: (context, index) {
+                          return AnimatedScale(
+                            duration: const Duration(milliseconds: 300),
+                            scale: index == currentIndex ? 1.0 : 0.8,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.onBlack,
+                                borderRadius: BorderRadius.circular(25),
+                                image: DecorationImage(
+                                  image: AssetImage(onBoardingItems[index].image),
+                                  fit: BoxFit.fitWidth,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
-                  const Positioned(
+                  Positioned(
                     left: -250 + 35,
                     width: 250,
                     top: -30,
                     bottom: -30,
-                    child: WalletSide(),
+                    child: AnimatedBuilder(
+                        animation: animationController,
+                        child: const WalletSide(),
+                        builder: (context, child) {
+                          return Transform(
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, 0.001)
+                              ..rotateY(
+                                (30 * pi / 180) * animationController.value,
+                              ),
+                            alignment: Alignment.center,
+                            child: child,
+                          );
+                        }),
                   ),
                 ],
               ),
@@ -158,8 +206,7 @@ class PageIndicator extends StatelessWidget {
           builder: (context, constraints) {
             final size = constraints.smallest;
             final activeWidth = size.width * 0.5;
-            final inActiveWidth =
-                (size.width - activeWidth - (2 * length * 2)) / (length - 1);
+            final inActiveWidth = (size.width - activeWidth - (2 * length * 2)) / (length - 1);
 
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
