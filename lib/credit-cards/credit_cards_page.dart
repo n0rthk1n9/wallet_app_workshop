@@ -44,21 +44,54 @@ class _CreditCardsPageState extends State<CreditCardsPage> {
           itemCount: cards.length,
           initialActiveCard: activeCard,
           onCardTap: (index) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => CreditCardPage(initialIndex: index),
-              ),
+            pushFadeInRoute(
+              context,
+              pageBuilder: (context, _, __) => CreditCardPage(initialIndex: index),
             );
           },
           itemBuilder: (context, index) {
             return Align(
               widthFactor: cardHeight / cardWidth,
               heightFactor: cardWidth / cardHeight,
-              child: Transform.rotate(
-                angle: -pi / 2,
-                child: CreditCard(
-                  width: cardWidth,
-                  data: cards[index],
+              child: Hero(
+                tag: 'card_${cards[index].id}',
+                flightShuttleBuilder: (context, animation, _, __, ___) {
+                  final rotationAnimation = Tween<double>(begin: -pi / 2, end: pi).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  );
+                  final flipAnimation = Tween<double>(begin: 0, end: pi).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  );
+
+                  return Material(
+                    color: Colors.transparent,
+                    child: AnimatedBuilder(
+                        animation: animation,
+                        builder: (context, child) {
+                          return Transform(
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, 0.001)
+                              ..rotateZ(rotationAnimation.value)
+                              ..rotateX(flipAnimation.value),
+                            alignment: Alignment.center,
+                            child: Transform.flip(
+                              flipY: flipAnimation.value > 0.5,
+                              child: CreditCard(
+                                width: cardWidth,
+                                data: cards[index],
+                                isFront: flipAnimation.value > 0.5,
+                              ),
+                            ),
+                          );
+                        }),
+                  );
+                },
+                child: Transform.rotate(
+                  angle: -pi / 2,
+                  child: CreditCard(
+                    width: cardWidth,
+                    data: cards[index],
+                  ),
                 ),
               ),
             );
@@ -179,7 +212,10 @@ class _CreditCardsStackState extends State<CreditCardsStack> with SingleTickerPr
                     child: Transform.scale(
                       scale: minCardScale,
                       alignment: Alignment.topCenter,
-                      child: child,
+                      child: HeroMode(
+                        enabled: false,
+                        child: child,
+                      ),
                     ),
                   );
                 }
@@ -235,4 +271,23 @@ class _CreditCardsStackState extends State<CreditCardsStack> with SingleTickerPr
           );
         });
   }
+}
+
+Future<dynamic> pushFadeInRoute(
+  BuildContext context, {
+  required RoutePageBuilder pageBuilder,
+}) {
+  return Navigator.of(context).push(
+    PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 800),
+      reverseTransitionDuration: const Duration(milliseconds: 800),
+      pageBuilder: pageBuilder,
+      transitionsBuilder: (BuildContext context, Animation<double> animation, _, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+    ),
+  );
 }
